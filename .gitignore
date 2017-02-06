@@ -1,0 +1,6 @@
+
+.DS_Store
+
+*.dSYM
+*_helgrind
+*_tsan
