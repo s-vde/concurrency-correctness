@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My Awesome Presentation</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <style type="text/css">
+      @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
+      @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+
+      body { font-family: 'Droid Serif'; }
+      h1, h2, h3 {
+        font-family: 'Yanone Kaffeesatz';
+        font-weight: normal;
+      }
+      .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
+    </style>
+  </head>
+  <body onload="var slideshow = remark.create();">
+    <textarea id="source">
+
+class: center, middle
+
+# Verification and Concurrency
+### Susanne van den Elsen
+Native Instruments
+
+February 21, 2017
+
+---
+
+# Introduction
+---
+
+# Why use multiple threads?
+- Abstraction for modeling concurrent activities
+- Use multiple CPU cores for speeding up computation
+
+---
+
+# Concurrency Errors
+- Improper use of POSIX threads API
+- Data race: multiple threads access the same memory location concurrently and at least one of them modifies the memory
+- Deadlock: One more more threads wait for eachother indefinitely
+- False sharing: Threads running on different processor cores access different variables located in the same cache line frequently. This will slow down the involved threads due to frequent exchange of cache lines
+- Lock contention: One thread blocks the progress of other threads by holding a lock too long
+
+---
+
+
+# Concurrency Error Detectors
+| Thread Sanitizer                                          | Helgrind (Valgrind tool)                                  |
+| :-------------------------------------------------------- | :-------------------------------------------------------- |
+|                                                           | Based on POSIX threads
+| Compiler Instrumentation (LLVM IR)                        | Tool performs Runtime Instrumentation (VEX IR, RISC-like) |
+|                                                           | Code run on synthetic CPU provided by Valgrind Core       |
+|                                                           | Threads are fully serialized (only single CPU is used)    |
+| Only sees errors in actual execution                      |                                                           |
+|                                                           | False positives                                           |
+|                                                           | Possibility to suppress errors                            |
+| Only available on 64bit (32bit address space too limited) |                                                           |
+
+
+| Compiler Instrumentation                                  | Runtime Instrumentation                                   |
+| :-------------------------------------------------------- | :-------------------------------------------------------- |
+| - Need to recompile the source code                       | + Works directly on the executable                        |
+
+
+???
+Most devs know Valgrind as a memcheck tool, but that is actually only one of the tools it comes with.
+A less well-known tool is Helgrind.
+The nul-tool inserts no instrumentation and causes a 4x slowdown
+
+POSIX:
+- Shared address space among threads. All data (shared and non-shared is identified by its address)
+- Threads represent a concurrent activity
+- Synchronisation objects: mutexes, condition variables, semaphores, reader-writer synchronisation objects, barriers, spinlocks
+---
+
+# A Closer Look at Helgrind
+- Monitors all accesses to memory locations
+- If memory location is accessed by two different threads, Hegrind checks whether the two accesses are
+  ordered by a happens-before relation
+- If so, no race is reported
+
+<img src='http://g.gravizo.com/g?
+digraph G {
+    node [shape=none];
+    edge [minlen=0.75, arrowsize=0.5]
+    "1 lock m" -> "1 write x" -> "1 unlock m";
+    "2 lock m" -> "2 read x" -> "2 unlock m";
+    "1 unlock m" -> "2 lock m" [label=hb];
+    "1 write x" -> "2 read x" [style=dotted, label=hb];
+}
+'/>
+---
+
+<img src='http://g.gravizo.com/g?
+digraph G {
+    node [shape=none];
+    edge [minlen=0.75, arrowsize=0.5]
+    "1 wait cond_var" -> "1 write x" -> "1 broadcast cond_var";
+    "2 wait cond_var" -> "2 read x" -> "2 post cond_var";
+    "3 wait cond_var" -> "3 read x" -> "3 post cond_var";
+    "1 broadcast cond_var" -> "2 wait cond_var" [label=hb];
+    "1 broadcast cond_var" -> "3 wait cond_var" [label=hb];
+    "1 write x" -> "2 read x" [style=dotted, label=hb];
+    "1 write x" -> "3 read x" [style=dotted, label=hb];
+}
+'/>
+
+???
+- Happens-before relation: There is a chain of synchronisation oeprations which cause those accesses to happen in a
+particular order
+- Partial ordering: some elements may be unordered with respect to each other
+---
+
+# A Closer Look at DRD
+Result of load/store operations depends on order in which they are performed. This order consists of
+- Thread order: operations performed by the same thread are ordered by the program (but may nonetheless depend on the results of previous load/store operations);
+- Synchronization order: Ordering constraints on operations performed by different threads
+- Together they form the Happens-Before order
+- A program is data-race free if all conflicting memory accesses are ordered by synchronization operations
+- HB methods do *not* report false pasitives
+---
+
+
+- Example where this is insufficient
+---
+
+# Nondeterminism
+- Concurrency errors notoriously difficult to catch: traditional testing not sufficient to find/reproduce errors
+
+- OS / VM Scheduler can be preempt threads at any time (beyond control of programmer)
+- Timing conditions
+
+- Abstraction of threads: these decisions are offloaded to the scheduler.
+---
+
+# State Space Explosion
+- Combinatorial explosion
+
+- Worst-case example: n threads with 1 local variable each: n! (exponential) interleavings, and only a single outcome
+---
+
+# State Space Reduction
+- Reduce the number of interleavings explored
+- Versus coverage guarantees: quantify the class / number of interleavings seen
+---
+
+# Randomized Testing
+- Citation:
+- Gives *some* (probabilistic) guarantees
+---
+
+# Systematic Testing
+- Systematically see a subset of interleavings
+---
+
+# Bounded Search
+- Define a bound function bf on interleaving and give a bound k
+- Only explore those interleaving for which bf(interleaving) less or equal k
++ Incremental
++ Fast
++ Some guarantees
+- Incomplete
+- Redundancy
+---
+
+# Partial Order Reduction
+- Equivalence relation on interleavings
+- Ideally explore exactly one representative per equivalence class
++ Complete
+- Non-incremental
+- For nontrivial programs still too little reduction
+
+- Dependence relation on instructions
+- Happens-before relation on instructions
+- HB = Partial Order = Equivalence
+---
+
+# Tool
+- LLVM compiler instrumentation pass
+- Scheduler
+- Exploration algorithms
+---
+
+# Links
+
+POSIX threads:
+http://pubs.opengroup.org/onlinepubs/000095399/idx/threads.html
+
+Helgrind:
+http://valgrind.org/docs/manual/hg-manual.html
+
+DRD:
+http://valgrind.org/docs/manual/drd-manual.html
+
+ThreadSanitizer:
+...
+---
+
+    </textarea>
+    <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js">
+        </script>
+    <script>
+        var slideshow = remark.create();
+        </script>
+    </body>
+</html>
