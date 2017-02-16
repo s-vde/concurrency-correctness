@@ -77,40 +77,56 @@ POSIX:
 - Synchronisation objects: mutexes, condition variables, semaphores, reader-writer synchronisation objects, barriers, spinlocks
 ---
 
-# ThreadSanitizer: Data Races
----
-
-# Helgrind: Data Races
-- Monitors all accesses to memory locations
-- If memory location is accessed by two different threads, Hegrind checks whether the two accesses are
+# ThreadSanitizer & Helgrind: Data Races
+- Monitor all accesses to memory locations
+- If memory location is accessed by two different threads, checks whether the two accesses are
   ordered by a happens-before relation
-- If so, no race is reported
+- If not, a race is reported
 
 <img src='http://g.gravizo.com/g?
-digraph G {
+digraph data_race {
     node [shape=none];
-    edge [minlen=0.75, arrowsize=0.5]
-    "1 lock m" -> "1 write x" -> "1 unlock m";
-    "2 lock m" -> "2 read x" -> "2 unlock m";
-    "1 unlock m" -> "2 lock m" [label=hb];
-    "1 write x" -> "2 read x" [style=dotted, label=hb];
+    "1 write y" [shape=box, color=blue];
+    "2 read y" [shape=box, color=blue];
+    "2 write x" -> "2 read x" -> "2 read y" -> "2 write z";
 }
 '/>
+
 ---
 
 <img src='http://g.gravizo.com/g?
-digraph G {
+digraph data_race_branch {
     node [shape=none];
-    edge [minlen=0.75, arrowsize=0.5]
-    "1 wait cond_var" -> "1 write x" -> "1 broadcast cond_var";
-    "2 wait cond_var" -> "2 read x" -> "2 post cond_var";
-    "3 wait cond_var" -> "3 read x" -> "3 post cond_var";
-    "1 broadcast cond_var" -> "2 wait cond_var" [label=hb];
-    "1 broadcast cond_var" -> "3 wait cond_var" [label=hb];
-    "1 write x" -> "2 read x" [style=dotted, label=hb];
-    "1 write x" -> "3 read x" [style=dotted, label=hb];
+    "1 read x" [shape=box, color=red];
+    "1 write y" [shape=box, color=blue];
+    "2 write x" [shape=box, color=red];
+    "2 read x" [shape=box, color=red];
+    "2 read y" [shape=box, color=blue];
+    "1 read x" -> "1 write y";
+    "2 write x" -> "2 read x" -> "2 read y" -> "2 write z";
 }
 '/>
+
+---
+
+<img src='http://g.gravizo.com/g?
+digraph data_race_branch_fix {
+    node [shape=none];
+    "1 lock m";
+    "1 read x" [shape=box, color=red];
+    "1 unlock m";
+    "1 write y" [shape=box, color=blue];
+    "2 lock m";
+    "2 write x" [shape=box, color=red];
+    "2 unlock m";
+    "2 read x" [shape=box, color=red];
+    "2 read y" [shape=box, color=blue];
+    "1 lock m" -> "1 read x" -> "1 unlock m" -> "1 write y";
+    "2 lock m" -> "2 write x" -> "2 unlock m" -> "2 read x" -> "2 read y" -> "2 write z";
+    "1 unlock m" -> "2 lock m" [style=dotted, label=hb]
+}
+'/>
+---
 
 ???
 - Happens-before relation: There is a chain of synchronisation oeprations which cause those accesses to happen in a
