@@ -21,8 +21,7 @@ def execution_graph():
     graph.node_attr['width'] = '.05'
     graph.node_attr['style'] = 'filled'
     graph.node_attr['fillcolor'] = 'black'
-    graph.node_attr['fontname'] = 'Ubuntu Code'
-    # graph.node_attr['label'] = '""'
+    # graph.node_attr['fontname'] = 'Consolas'
     graph.edge_attr['arrowsize'] = '0.5'
     graph.edge_attr['weight'] = '1'
     graph.edge_attr['fontname'] = 'Ubuntu Code'
@@ -163,38 +162,3 @@ def print_data_race_branch_cpp():
     dump_tree(graph, "trees", "data_race_branch")
 
 print_data_race_branch_cpp()
-
-#----------------------------------------------------------------------------------------------------
-# DATA_RACE_BRANCH_FIX
-#----------------------------------------------------------------------------------------------------
-    
-def data_race_branch_fix_cpp(schedule):
-    thread1 = [ "1 lock m", "1 read x", "1 unlock m", "1 read y" ]
-    thread2 = [ "2 lock m", "2 write x", "2 unlock m", "2 read x", "2 read y", "2 write z" ]
-    threads = [thread1, thread2]
-    # build_execution(threads, [(0,0),(0,1),(0,2),(1,0),(1,1),(1,2),(1,3),(1,4),(1,5)], "trees", "data_race_branch_fix")
-    graph = execution_graph()
-    add_execution(graph, threads, schedule)
-    return graph
-    
-def print_data_race_branch_fix_cpp():
-    
-    schedule = [(1,0),(1,1),(1,2),(0,0),(0,1),(0,2),(1,3),(1,4),(1,5)]
-    
-    graph = data_race_branch_fix_cpp(schedule)
-    # [x:] without happens-before
-    highlight(graph, "_instr_s-1-1", "red")
-    highlight(graph, "_instr_s-1-1-1-0-0", "red")
-    dump_execution(graph, schedule, "trees", "data_race_branch_fix[hb-1]")
-    # [x:] with happens-before
-    add_happens_before_edge(graph, "s-1-1-1", "s-1-1-1-0")
-    add_happens_before_edge(graph, "s-1-1", "s-1-1-1-0-0")
-    dump_execution(graph, schedule, "trees", "data_race_branch_fix[hb-2]")
-
-#----------------------------------------------------------------------------------------------------
-
-
-#print_data_race_branch_cpp()
-#print_data_race_branch_fix_cpp()
-
-

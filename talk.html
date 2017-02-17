@@ -4,6 +4,7 @@
     <title>Testing and Verifying Concurrent Programs</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <style type="text/css">
+      /*@import url(https://fonts.googleapis.com/css?family=Consolas);*/
       @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
       @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
       @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
@@ -11,6 +12,7 @@
       body { font-family: 'Droid Serif'; }
       h1, h2, h3 {
         font-family: 'Yanone Kaffeesatz';
+        /*font-family: 'Consolas';*/
         font-weight: normal;
       }
       .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
@@ -88,24 +90,15 @@ POSIX:
 ---
 
 # ThreadSanitizer & Helgrind: Data Races
-Using the *happens-before* relation
+Using the *happens-before* relation:
 
 .center[<img src='./trees/data_race[xy]-00001111111.dot.jpg' height="450"/>]
 ---
 
 # ThreadSanitizer & Helgrind: Data Races
-Using the *happens-before* relation
+Using the *happens-before* relation:
 
 .center[<img src='./trees/data_race[xy-hb]-00001111111.dot.jpg' height="450"/>]
-
-???
-- Monitor all accesses to memory locations
-- If memory location is accessed by two different threads, checks whether the two accesses are
-  ordered by a happens-before relation
-- If not, a race is reported
-- Happens-before relation: There is a chain of synchronisation oeprations which cause those accesses to happen in a
-particular order
-- Partial ordering: some elements may be unordered with respect to each other
 ---
 
 # ThreadSanitizer & Helgrind: Data Races
@@ -115,11 +108,14 @@ Limited information in *single* execution:
 .center[<img src='./trees/data_race_branch.dot.jpg' height="450"/>]
 ---
 
-
-<!-- =============================================================================================================== -->
-
-<!-- =============================================================================================================== -->
-# A Closer Look at DRD
+???
+- Monitor all accesses to memory locations
+- If memory location is accessed by two different threads, checks whether the two accesses are
+  ordered by a happens-before relation
+- If not, a race is reported
+- Happens-before relation: There is a chain of synchronisation oeprations which cause those accesses to happen in a
+particular order
+- Partial ordering: some elements may be unordered with respect to each other
 Result of load/store operations depends on order in which they are performed. This order consists of
 - Thread order: operations performed by the same thread are ordered by the program (but may nonetheless depend on the results of previous load/store operations);
 - Synchronization order: Ordering constraints on operations performed by different threads
@@ -128,26 +124,27 @@ Result of load/store operations depends on order in which they are performed. Th
 - HB methods do *not* report false pasitives
 ---
 
+<!-- =============================================================================================================== -->
+<!-- DEADLOCK -->
+<!-- =============================================================================================================== -->
 
-- Example where this is insufficient
----
-
-# ThreadSanitizer: Deadlock
-
-- Maintains a directed graph of lock aquisitions
-- An edge ```lock_object1 -> lock_object2``` is added iff a thread aquires a lock on ```lock_object2``` while holding a lock on ```lock_object1```
-- A cycle in the graph corresponds to a potential deadlock
+# ThreadSanitizer & Helgrind: Deadlock
 
 .center[
 <img src='http://g.gravizo.com/g?
 digraph deadlock {
+    graph [dpi=300]
     node [shape=none];
     edge [minlen=0.75, arrowsize=0.5]
     "lock forks[0]" -> "lock forks[1]" [label="thread 1"];
     "lock forks[1]" -> "lock forks[0]" [label="thread 2"];
 }
-'/>
-]
+' width="450"/>]
+
+???
+- Maintains a directed graph of lock aquisitions
+- An edge ```lock_object1 -> lock_object2``` is added iff a thread aquires a lock on ```lock_object2``` while holding a lock on ```lock_object1```
+- A cycle in the graph corresponds to a potential deadlock
 
 ---
 
