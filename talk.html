@@ -10,12 +10,23 @@
       @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
 
       body { font-family: 'Droid Serif'; }
-      h1, h2, h3 {
+      h1, h2, h3 
+      {
         font-family: 'Yanone Kaffeesatz';
         /*font-family: 'Consolas';*/
         font-weight: normal;
       }
+      
       .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
+      
+      .remark-container {
+        background-color: grey;
+      }
+      
+      li 
+      {
+         margin: 0.75em 0;
+      }
     </style>
   </head>
   <body onload="var slideshow = remark.create();">
@@ -38,18 +49,114 @@ February 21, 2017
 - Abstraction for modeling concurrent activities
 - Use multiple CPU cores for speeding up computation
 
----
 
-# Concurrency Errors
-- Improper use of POSIX threads API
-- Data race: multiple threads access the same memory location concurrently and at least one of them modifies the memory
-- Deadlock: One more more threads wait for eachother indefinitely
+<!-- =========================================================================================== -->
+
+---
+# What's Hard About Concurrency?
+--
+count: false
+### Shared Resources
+
+--
+count: false
+**Datarace**: two (or more) threads access the same memory location *concurrently* and at least one 
+of them is a *write*
+
+```c++
+int x, y, z = 0;
+
+thread 0                   thread 1
+--------                   --------
+
+if (x == 1)                x = 1; 
+{                          z = x + y;
+   y = 1;                  std::cout << z << "\n";                   
+}                                          
+```
+
+---
+count: false
+# What's Hard About Concurrency?
+### Shared Resources
+
+**Deadlock**: One more more threads wait for eachother indefinitely
+
+```c++
+array<int,2> nr_meals_eaten = {0, 0};
+mutex fork1, fork2;
+
+philosopher 0              philosopher 1
+-------------              -------------
+
+lock(fork1);               lock(fork2);
+lock(fork2);               lock(fork1);
+++nr_meals_eaten[0];       ++nr_meals_eaten[1];
+unlock(fork2);             unlock(fork1);
+unlock(fork1);             unlock(fork2);
+```
+
+???
 - False sharing: Threads running on different processor cores access different variables located in the same cache line frequently. This will slow down the involved threads due to frequent exchange of cache lines
 - Lock contention: One thread blocks the progress of other threads by holding a lock too long
 
 ---
+# What's Hard About Concurrency?
+### State Space Explosion
 
+--
+count: false
+Number of interleavings is *exponential* in the number of threads and instructions!
+<br/><br/>
+.center[<img src='./trees/data_races.dot.jpg' width="800"/>]
 
+???
+Worst-case example: n threads with 1 local variable each: n! (exponential) interleavings, and only 
+a single outcome
+
+---
+# What's Hard About Concurrency?
+### Hard to Debug
+
+<br/>
+<br/><br/>
+.center[<img src='./trees/data_races.dot.jpg' width="800"/>]
+
+???
+Worst-case example: n threads with 1 local variable each: n! (exponential) interleavings, and only 
+a single outcome
+
+<!-- =========================================================================================== -->
+
+---
+count: false
+
+<!-- =========================================================================================== -->
+
+---
+# Testing & Verifying Concurrent Programs
+
+### Nondeterminism
+
+- The interleaving of threads is out of the programmer's control
+- Bugs may only manifest in rare thread interleavings
+- *Heisenbugs*: tend to disappear when you try to debug them
+
+???
+1. It is in the hands of the OS/VM scheduler
+2. But the consequences may be severe in safety-critical systems
+3. Hard to reproduce
+
+---
+# Systemic Exploration
+
+### Taking Control Over the Thread Interleavings
+
+- Scheduler
+
+- LLVM IR Instumentation Pass
+
+---
 # Concurrency Error Detectors
 | Thread Sanitizer                                          | Helgrind (Valgrind tool)                                  |
 | :-------------------------------------------------------- | :-------------------------------------------------------- |
@@ -79,9 +186,9 @@ POSIX:
 - Synchronisation objects: mutexes, condition variables, semaphores, reader-writer synchronisation objects, barriers, spinlocks
 ---
 
-<!-- =============================================================================================================== -->
+<!-- =========================================================================================== -->
 <!-- DATA RACES -->
-<!-- =============================================================================================================== -->
+<!-- =========================================================================================== -->
 
 # ThreadSanitizer & Helgrind: Data Races
 <!-- Using the *happens-before* relation -->
@@ -157,12 +264,6 @@ digraph deadlock {
 - Abstraction of threads: these decisions are offloaded to the scheduler.
 ---
 
-# State Space Explosion
-- Combinatorial explosion
-
-- Worst-case example: n threads with 1 local variable each: n! (exponential) interleavings, and only a single outcome
----
-
 # State Space Reduction
 - Reduce the number of interleavings explored
 - Versus coverage guarantees: quantify the class / number of interleavings seen
@@ -224,7 +325,9 @@ https://github.com/google/sanitizers/wiki/ThreadSanitizerDeadlockDetector
     <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js">
         </script>
     <script>
-        var slideshow = remark.create();
+        var slideshow = remark.create({
+           countIncrementalSlides: false
+        });
         </script>
     </body>
 </html>
