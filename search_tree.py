@@ -1,33 +1,8 @@
 
 import os
-import pygraphviz as pgv
+import execution_tree as ext
 
 colors = ['black', 'black']
-
-#----------------------------------------------------------------------------------------------------
-
-def execution_graph():
-    graph = pgv.AGraph(strict=False,directed=True)
-    
-    graph.graph_attr['dpi'] = '300'
-    graph.graph_attr['strict'] = 'False'
-    graph.graph_attr['directed'] = 'True' 
-    graph.graph_attr['rankdir'] = 'TB'      # vertical edge direction
-    graph.graph_attr['ranksep'] = '0.3'
-    graph.graph_attr['nodesep'] = '2'
-    # node style
-    graph.node_attr['shape'] = 'point'
-    graph.node_attr['fixedsize'] = 'true'
-    graph.node_attr['width'] = '.05'
-    graph.node_attr['style'] = 'filled'
-    graph.node_attr['fillcolor'] = 'black'
-    # graph.node_attr['fontname'] = 'Consolas'
-    graph.edge_attr['arrowsize'] = '0.5'
-    graph.edge_attr['weight'] = '1'
-    graph.edge_attr['fontname'] = 'Ubuntu Code'
-    
-    return graph
-#----------------------------------------------------------------------------------------------------
 
     
 def add_edge(graph, source_id, dest_id, thread_id, instruction):
@@ -45,7 +20,7 @@ def highlight(graph, node_id, color):
     node.attr['fontcolor'] = color
     
 def build_execution_tree(threads, output_dir, program_name):
-    graph = execution_graph()
+    graph = ext.execution_tree()
     graph.add_node(0)
     build_execution_subtree(graph, threads, 0, [0, 0], 0)
     dump_tree(graph, output_dir, "%s.dot" % program_name)
@@ -68,14 +43,14 @@ def add_execution(graph, threads, schedule):
     thread_indices = list(map(lambda x : 0, threads))
     for (thread_id, thread_index) in schedule:
         if (thread_index < len(threads[thread_id])):
-            child_node_id = "%s-%d" % (node_id, thread_id)
+            child_node_id = "%s.%d" % (node_id, thread_id)
             graph.add_node(child_node_id)
             add_edge(graph, node_id, child_node_id, thread_id, threads[thread_id][thread_index])
             thread_indices[thread_id] += 1
             node_id = child_node_id
             
 def build_execution(threads, schedule, output_dir, program_name):
-    graph = execution_graph()
+    graph = ext.execution_tree()
     add_execution(graph, threads, schedule)
     dump_execution(graph, schedule, output_dir, program_name)
             
@@ -102,13 +77,13 @@ def print_data_races_cpp():
     thread2 = [ "2 write x", "2 read x", "2 read y", "2 write z" ]
     threads = [thread1, thread2]
     
-    graph = execution_graph()
+    graph = ext.execution_tree()
     schedule = [(0,0),(0,1),(1,0),(1,1),(1,2),(1,3)]
     add_execution(graph, threads, schedule)
-    highlight(graph, "_instr_s-0", "red")
-    highlight(graph, "_instr_s-0-0-1", "red")
-    highlight(graph, "_instr_s-0-0", "blue")
-    highlight(graph, "_instr_s-0-0-1-1-1", "blue")
+    highlight(graph, "_instr_s.0", "red")
+    highlight(graph, "_instr_s.0.0.1", "red")
+    highlight(graph, "_instr_s.0.0", "blue")
+    highlight(graph, "_instr_s.0.0.1.1.1", "blue")
     dump_execution(graph, schedule, "trees", "data_races[xy]")
     
     # TREE
@@ -125,17 +100,17 @@ def print_data_race_cpp():
     thread2 = [ "2 lock m", "2 write x", "2 unlock m", "2 read x", "2 read y", "2 write z" ]
     threads = [thread1, thread2]
     
-    graph = execution_graph()
+    graph = ext.execution_tree()
     schedule = [(0,0),(0,1),(0,2),(0,3),(1,0),(1,1),(1,2),(1,3),(1,4),(1,5),(1,6)]
     add_execution(graph, threads, schedule)
-    highlight(graph, "_instr_s-0-0", "red")
-    highlight(graph, "_instr_s-0-0-0-0-1-1", "red")
-    highlight(graph, "_instr_s-0-0-0-0", "blue")
-    highlight(graph, "_instr_s-0-0-0-0-1-1-1-1-1", "blue")
+    highlight(graph, "_instr_s.0.0", "red")
+    highlight(graph, "_instr_s.0.0.0.0.1.1", "red")
+    highlight(graph, "_instr_s.0.0.0.0", "blue")
+    highlight(graph, "_instr_s.0.0.0.0.1.1.1.1.1", "blue")
     dump_execution(graph, schedule, "trees", "data_race[xy]")
     
-    add_happens_before_edge(graph, "s-0-0-0", "s-0-0-0-0-1")
-    add_happens_before_edge(graph, "s-0-0", "s-0-0-0-0-1-1")
+    add_happens_before_edge(graph, "s.0.0.0", "s.0.0.0.0.1")
+    add_happens_before_edge(graph, "s.0.0", "s.0.0.0.0.1.1")
     dump_execution(graph, schedule, "trees", "data_race[xy-hb]")
     
 print_data_race_cpp()
@@ -149,16 +124,16 @@ def print_data_race_branch_cpp():
     thread2 = [ "2 write x", "2 read x", "2 read y", "2 write z" ]
     threads = [thread1, thread2]
 
-    graph = execution_graph()
+    graph = ext.execution_tree()
     add_execution(graph, threads, [(0,0),(1,0),(1,1),(1,2),(1,3)])
     add_execution(graph, threads, [(1,0),(0,0),(0,1),(1,1),(1,2),(1,3)])
     # execution 1
-    highlight(graph, "_instr_s-0", "red")
-    highlight(graph, "_instr_s-0-1", "red")
-    highlight(graph, "_instr_s-1", "red")
-    highlight(graph, "_instr_s-1-0", "red")
-    highlight(graph, "_instr_s-1-0-0", "blue")
-    highlight(graph, "_instr_s-1-0-0-1-1", "blue")
+    highlight(graph, "_instr_s.0", "red")
+    highlight(graph, "_instr_s.0.1", "red")
+    highlight(graph, "_instr_s.1", "red")
+    highlight(graph, "_instr_s.1.0", "red")
+    highlight(graph, "_instr_s.1.0.0", "blue")
+    highlight(graph, "_instr_s.1.0.0.1.1", "blue")
     dump_tree(graph, "trees", "data_race_branch")
 
 print_data_race_branch_cpp()
