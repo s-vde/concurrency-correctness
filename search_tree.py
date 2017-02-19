@@ -4,7 +4,6 @@ import execution_tree as ext
 
 colors = ['black', 'black']
 
-    
 def add_edge(graph, source_id, dest_id, thread_id, instruction):
     # add dummy node in the middle of the edge
     dummy_instr_id = "_instr_%s" % dest_id
@@ -12,8 +11,17 @@ def add_edge(graph, source_id, dest_id, thread_id, instruction):
     graph.add_edge(source_id, dummy_instr_id, dir='none', color=colors[thread_id])
     graph.add_edge(dummy_instr_id, dest_id, color=colors[thread_id])
     
-def add_happens_before_edge(graph, source_id, dest_id):
-    graph.add_edge("_instr_%s" % source_id, "_instr_%s" % dest_id, weight='0', style='dotted', label='  hb  ')
+def add_happens_before_edge(graph, source_sched, dest_sched):
+    graph.add_edge(ext.node_of_schedule(source_sched, "_instr_s."),
+                   ext.node_of_schedule(dest_sched, "_instr_s."),
+                   weight='0', 
+                   style='dotted', 
+                   label='  hb  ')
+
+def remove_happens_before_edge(graph, source_sched, dest_sched):
+    graph.remove_edge(ext.node_of_schedule(source_sched, "_instr_s."),
+                      ext.node_of_schedule(dest_sched, "_instr_s."))
+
     
 def highlight(graph, node_id, color):
     node = graph.get_node(node_id)
@@ -21,15 +29,15 @@ def highlight(graph, node_id, color):
     
 def build_execution_tree(threads, output_dir, program_name):
     graph = ext.execution_tree()
-    graph.add_node(0)
-    build_execution_subtree(graph, threads, 0, [0, 0], 0)
-    ext.dump(graph, output_dir, "%s.dot" % program_name)
+    graph.add_node("s")
+    build_execution_subtree(graph, threads, "s", [0, 0], 0)
+    return graph
     
 def build_execution_subtree(graph, threads, node_id, thread_indices, build_index):
     for thread_id in range(0, len(threads)):
         thread_index = thread_indices[thread_id]
         if (thread_index < len(threads[thread_id])):
-            child_node_id = "%d-%d-%d" % (build_index, thread_id, thread_index)
+            child_node_id = "%s.%d" % (node_id, thread_id)
             graph.add_node(child_node_id)
             add_edge(graph, node_id, child_node_id, thread_id, threads[thread_id][thread_index])
             new_thread_indices = list(thread_indices)
@@ -56,7 +64,7 @@ def build_execution(threads, schedule, output_dir, program_name):
             
 #=======================================================================================================================
 # DUMP
-
+#=======================================================================================================================
     
 def dump_execution(graph, schedule, output_dir, program_name):
     schedule_str = "".join(map(lambda x : str(x[0]), schedule))
@@ -81,7 +89,15 @@ def print_data_races_cpp():
     dump_execution(graph, schedule, "trees", "data_races[xy]")
     
     # TREE
-    build_execution_tree(threads, "trees", "data_races")
+    tree = build_execution_tree(threads, "trees", "data_races")
+    ext.dump(tree, "trees", "data_races")
+    
+    ext.highlight_schedule(tree, [1,0,1,0,1,1], "red")
+    ext.dump(tree, "trees", "data_races_highlight1")
+    
+    ext.reset_schedule(tree, [1,0,1,0,1,1])
+    ext.highlight_schedule(tree, [0,0,1,1,1,1], "green")
+    ext.dump(tree, "trees", "data_races_highlight2")
     
 print_data_races_cpp()
 
@@ -131,3 +147,211 @@ def print_data_race_branch_cpp():
     ext.dump(graph, "trees", "data_race_branch")
 
 print_data_race_branch_cpp()
+
+#---------------------------------------------------------------------------------------------------
+# WORK_STEALING_QUEUE DPOR
+#---------------------------------------------------------------------------------------------------
+
+def add_and_remove_happens_before(tree, source_sched, dest_sched, backtrack_thread,
+                                  program_name, execution_index, hb_index):
+    add_happens_before_edge(tree, source_sched, dest_sched)
+    ext.dump(tree, "trees/dpor", "%s-%d-hb-%d" % (program_name, execution_index, hb_index))
+    new_schedule = list(source_sched)
+    new_schedule.pop()
+    ext.add_to_node_label(tree, ext.node_of_schedule(new_schedule), "todo={%d}" % backtrack_thread, "blue")
+    ext.dump(tree, "trees/dpor", "%s-%d-hb-%d-bt" % (program_name, execution_index, hb_index))
+    remove_happens_before_edge(tree, source_sched, dest_sched)
+
+def print_work_stealing_queue_dpor():
+    tree = ext.execution_tree()
+    output_dir = "trees/dpor"
+    
+    ### Execution 1
+    schedule = [0,0,0,0,0,0,1,1,1,1]
+    ext.add_schedule(tree, schedule)
+    ext.add_execution(tree, [
+        (0,"0 atomic load tail"),   # 0
+        (0,"0 atomic load head"),   # 0
+        (0,"0 store jobs[0]"),      
+        (0,"0 atomic store tail"),  # 1
+        (0,"0 atomic load tail"),   # 1
+        (0,"0 atomic load head"),   # 0
+        (1,"1 atomic load head"),   # 0
+        (1,"1 atomic store head"),  # 1
+        (1,"1 atomic load tail"),   # 1
+        (1,"1 load jobs[0]")
+    ])
+    ext.highlight_schedule(tree, [0,0,0,0,0,0,1,1,1,1])
+    ext.dump(tree, output_dir, "work-stealing-queue-1")
+    
+    # Happens-before
+    add_and_remove_happens_before(tree, [0,0,0,0,0,0], [0,0,0,0,0,0,1,1], 1,
+                                  "work-stealing-queue", 1, 1)
+    add_and_remove_happens_before(tree, [0,0,0,0], [0,0,0,0,0,0,1,1,1], 1,
+                                  "work-stealing-queue", 1, 2)
+    add_and_remove_happens_before(tree, [0,0,0], [0,0,0,0,0,0,1,1,1,1], 1,
+                                  "work-stealing-queue", 1, 3)
+    ext.add_schedule(tree, [0,0,0,0,0,0,1,1,1,1])
+    ext.reset_schedule(tree, [0,0,0,0,0,0,1,1,1,1])
+    
+    
+    ### Execution 2
+    schedule = [0,0,0,0,0,1,1,1,1,0,0,0]
+    ext.add_schedule(tree, schedule)
+    ext.add_execution(tree, [
+        (0,"0 atomic load tail"),   # 0
+        (0,"0 atomic load head"),   # 0
+        (0,"0 store jobs[0]"),      
+        (0,"0 atomic store tail"),  # 1
+        (0,"0 atomic load tail"),   # 1
+        (1,"1 atomic load head"),   # 0
+        (1,"1 atomic store head"),  # 1
+        (1,"1 atomic load tail"),   # 1
+        (1,"1 load jobs[0]"),       
+        (0,"0 atomic load head"),   # 1
+        (0,"0 store jobs[0]"),      
+        (0,"0 atomic store tail"),  # 2
+    ])
+    ext.highlight_schedule(tree, schedule)
+    # ext.add_to_node_label(tree, ext.node_of_schedule([0,0,0,0,0]), "sleep={0}", "blue")
+    ext.dump(tree, output_dir, "work-stealing-queue-2")
+    
+    # Happens-before
+    # sleep-set-blocked
+    add_and_remove_happens_before(tree, [0,0,0,0,0,1,1], [0,0,0,0,0,1,1,1,1,0], 0,
+                                  "work-stealing-queue", 2, 1)
+    add_and_remove_happens_before(tree, [0,0,0,0,0,1,1,1,1], [0,0,0,0,0,1,1,1,1,0,0], 0,
+                                  "work-stealing-queue", 2, 2)
+    # transitive reduction
+    add_and_remove_happens_before(tree, [0,0,0,0,0,1,1,1], [0,0,0,0,0,1,1,1,1,0,0,0], 0,
+                                  "work-stealing-queue", 2, 3)
+    ext.add_schedule(tree, schedule)
+    ext.reset_schedule(tree, schedule)
+    
+    
+    ### Execution 3
+    schedule = [0,0,0,0,0,1,1,1,0,0,0,1]
+    ext.add_schedule(tree, schedule)
+    ext.add_execution(tree, [
+        (0,"0 atomic load tail"),   # 0
+        (0,"0 atomic load head"),   # 0
+        (0,"0 store jobs[0]"),      
+        (0,"0 atomic store tail"),  # 1
+        (0,"0 atomic load tail"),   # 1
+        (1,"1 atomic load head"),   # 0
+        (1,"1 atomic store head"),  # 1
+        (1,"1 atomic load tail"),   # 1
+        (0,"0 atomic load head"),   # 1
+        (0,"0 store jobs[0]"),      
+        (0,"0 atomic store tail"),  # 2
+        (1,"1 load jobs[0]")
+    ])
+    ext.highlight_schedule(tree, schedule)
+    ext.dump(tree, output_dir, "work-stealing-queue-3")
+    
+    # Happens-before
+    add_and_remove_happens_before(tree, [0,0,0,0,0,1,1,1,0,0], [0,0,0,0,0,1,1,1,0,0,0,1], 1,
+                                  "work-stealing-queue", 3, 1)
+    ext.add_schedule(tree, schedule)
+    ext.reset_schedule(tree, schedule)
+    
+    
+    ### Execution 4
+    schedule = [0,0,0,0,0,1,1,1,0,1,0,0]
+    ext.add_schedule(tree, schedule)
+    ext.add_execution(tree, [
+        (0,"0 atomic load tail"),   # 0
+        (0,"0 atomic load head"),   # 0
+        (0,"0 store jobs[0]"),      
+        (0,"0 atomic store tail"),  # 1
+        (0,"0 atomic load tail"),   # 1
+        (1,"1 atomic load head"),   # 0
+        (1,"1 atomic store head"),  # 1
+        (1,"1 atomic load tail"),   # 1
+        (0,"0 atomic load head"),   # 1
+        (1,"1 load jobs[0]"),
+        (0,"0 store jobs[0]"),      
+        (0,"0 atomic store tail"),  # 2 
+    ])
+    
+    ext.highlight_schedule(tree, schedule)
+    ext.dump(tree, output_dir, "work_stealing_queue-4")
+    
+    ext.add_schedule(tree, schedule)
+    ext.reset_schedule(tree, schedule)
+    
+    ### Execution 4
+    schedule = [0,0,0,0,0,1,1,1,0,1,0,0]
+    ext.add_schedule(tree, schedule)
+    ext.add_execution(tree, [
+        (0,"0 atomic load tail"),   # 0
+        (0,"0 atomic load head"),   # 0
+        (0,"0 store jobs[0]"),      
+        (0,"0 atomic store tail"),  # 1
+        (0,"0 atomic load tail"),   # 1
+        (1,"1 atomic load head"),   # 0
+        (1,"1 atomic store head"),  # 1
+        (1,"1 atomic load tail"),   # 1
+        (0,"0 atomic load head"),   # 1
+        (1,"1 load jobs[0]"),
+        (0,"0 store jobs[0]"),      
+        (0,"0 atomic store tail"),  # 2 
+    ])
+    
+    ext.highlight_schedule(tree, schedule)
+    ext.dump(tree, output_dir, "work_stealing_queue-4")
+    
+    ext.add_schedule(tree, schedule)
+    ext.reset_schedule(tree, schedule)
+
+print_work_stealing_queue_dpor()
+
+#---------------------------------------------------------------------------------------------------
+# WORK_STEALING_QUEUE BS
+#---------------------------------------------------------------------------------------------------
+
+def print_work_stealing_queue_bs():
+    output_dir = "trees/bs"
+    
+    ### Execution 1
+    tree = ext.execution_tree()
+    schedule = [0,0,0,0,0,0,1,1,1,1]
+    ext.add_schedule(tree, schedule)
+    ext.add_execution(tree, [
+        (0,"0 atomic load tail"),   # 0
+        (0,"0 atomic load head"),   # 0
+        (0,"0 store jobs[0]"),      
+        (0,"0 atomic store tail"),  # 1
+        (0,"0 atomic load tail"),   # 1
+        (0,"0 atomic load head"),   # 0
+        (1,"1 atomic load head"),   # 0
+        (1,"1 atomic store head"),  # 1
+        (1,"1 atomic load tail"),   # 1
+        (1,"1 load jobs[0]")
+    ])
+    ext.set_node_shape(tree, ext.node_of_schedule([0,0,0,0,0,0]), "diamond", 0.3, 0.3, "blue")
+    ext.dump(tree, "trees/bs", "work-stealing-queue-cs-1")
+    
+    ### Execution 2
+    tree = ext.execution_tree()
+    schedule = [0,0,0,0,0,1,1,1,1,0,0,0]
+    ext.add_schedule(tree, schedule)
+    ext.add_execution(tree, [
+        (0,"0 atomic load tail"),   # 0
+        (0,"0 atomic load head"),   # 0
+        (0,"0 store jobs[0]"),      
+        (0,"0 atomic store tail"),  # 1
+        (0,"0 atomic load tail"),   # 1
+        (1,"1 atomic load head"),   # 0
+        (1,"1 atomic store head"),  # 1
+        (1,"1 atomic load tail"),   # 1
+        (1,"1 load jobs[0]"),       
+        (0,"0 atomic load head"),   # 1
+        (0,"0 store jobs[0]"),      
+        (0,"0 atomic store tail"),  # 2
+    ])
+    ext.set_node_shape(tree, ext.node_of_schedule([0,0,0,0,0]), "diamond", 0.3, 0.3, "blue")
+    ext.set_node_shape(tree, ext.node_of_schedule([0,0,0,0,0,1,1,1,1]), "diamond", 0.3, 0.3, "blue")
+    ext.dump(tree, "trees/bs", "work-stealing-queue-cs-2")
+
+print_work_stealing_queue_bs()

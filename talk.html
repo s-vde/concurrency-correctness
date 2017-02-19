@@ -41,28 +41,21 @@ Native Instruments
 February 21, 2017
 
 ---
-
 # Introduction
----
 
+---
 # Why use multiple threads?
 - Abstraction for modeling concurrent activities
 - Use multiple CPU cores for speeding up computation
-
 
 <!-- =========================================================================================== -->
 
 ---
 # What's Hard About Concurrency?
---
-count: false
 ### Shared Resources
 
 --
 count: false
-**Datarace**: two (or more) threads access the same memory location *concurrently* and at least one 
-of them is a *write*
-
 ```c++
 int x, y, z = 0;
 
@@ -75,12 +68,15 @@ if (x == 1)                x = 1;
 }                                          
 ```
 
----
+--
 count: false
+#### Datarace: 
+two (or more) threads access the same memory location *concurrently* and at least one 
+of them is a *write*
+
+---
 # What's Hard About Concurrency?
 ### Shared Resources
-
-**Deadlock**: One more more threads wait for eachother indefinitely
 
 ```c++
 array<int,2> nr_meals_eaten = {0, 0};
@@ -96,6 +92,11 @@ unlock(fork2);             unlock(fork1);
 unlock(fork1);             unlock(fork2);
 ```
 
+--
+count: false
+#### Deadlock: 
+One more more threads wait for eachother indefinitely
+
 ???
 - False sharing: Threads running on different processor cores access different variables located in the same cache line frequently. This will slow down the involved threads due to frequent exchange of cache lines
 - Lock contention: One thread blocks the progress of other threads by holding a lock too long
@@ -105,7 +106,7 @@ unlock(fork1);             unlock(fork2);
 ### State Space Explosion
 
 --
-count: false
+
 Number of interleavings is *exponential* in the number of threads and instructions!
 <br/><br/>
 .center[<img src='./trees/data_races.dot.jpg' width="800"/>]
@@ -116,54 +117,57 @@ a single outcome
 
 ---
 # What's Hard About Concurrency?
-### Hard to Debug
-
-<br/>
-<br/><br/>
-.center[<img src='./trees/data_races.dot.jpg' width="800"/>]
-
-???
-Worst-case example: n threads with 1 local variable each: n! (exponential) interleavings, and only 
-a single outcome
-
-<!-- =========================================================================================== -->
-
----
-count: false
-
-<!-- =========================================================================================== -->
-
----
-# Testing & Verifying Concurrent Programs
-
 ### Nondeterminism
 
-- The interleaving of threads is out of the programmer's control
-- Bugs may only manifest in rare thread interleavings
-- *Heisenbugs*: tend to disappear when you try to debug them
+The interleaving of threads is out of the programmer's control
+<br/><br/><br/>
+.center[<img src='./trees/data_races.dot.jpg' width="800"/>]
+
+---
+
+# What's Hard About Concurrency?
+### Nondeterminism
+
+The interleaving of threads is out of the programmer's control
+<br/><br/><br/>
+.center[<img src='./trees/data_races_highlight1.dot.jpg' width="800"/>]
+
+---
+
+# What's Hard About Concurrency?
+### Nondeterminism
+
+The interleaving of threads is out of the programmer's control
+<br/><br/><br/>
+.center[<img src='./trees/data_races_highlight2.dot.jpg' width="800"/>]
 
 ???
 1. It is in the hands of the OS/VM scheduler
-2. But the consequences may be severe in safety-critical systems
-3. Hard to reproduce
-
----
-# Systemic Exploration
-
-### Taking Control Over the Thread Interleavings
-
-- Scheduler
-
-- LLVM IR Instumentation Pass
-
+- Bugs may only manifest in rare thread interleavings 
+   -> But the consequences may be severe in safety-critical systems
+- Heisenbugs: tend to disappear when you try to debug them
+   -> Hard to reproduce
+   
 ---
 # Concurrency Error Detectors
+
+### ThreadSanitzer & Helgrind
+- Instrument every potentially *visible* instruction
+- Maintain a state machine for analysis
+
+
+???
+### ThreadSanitizer
+- Compiler instrumentation (LLVM IR)
+
+### Helgrind
+- Runtime Instrumentation (VEX IR, RISC-like)
+- Code run on synthetic CPU provided by Valgrind Core 
+- Threads are fully serialized (only single CPU is used)
+
+
 | Thread Sanitizer                                          | Helgrind (Valgrind tool)                                  |
-| :-------------------------------------------------------- | :-------------------------------------------------------- |
-|                                                           | Based on POSIX threads
-| Compiler Instrumentation (LLVM IR)                        | Tool performs Runtime Instrumentation (VEX IR, RISC-like) |
-|                                                           | Code run on synthetic CPU provided by Valgrind Core       |
-|                                                           | Threads are fully serialized (only single CPU is used)    |
+| :-------------------------------------------------------- | :-------------------------------------------------------- 
 | Only sees errors in actual execution                      |                                                           |
 |                                                           | False positives                                           |
 |                                                           | Possibility to suppress errors                            |
@@ -184,57 +188,33 @@ POSIX:
 - Shared address space among threads. All data (shared and non-shared is identified by its address)
 - Threads represent a concurrent activity
 - Synchronisation objects: mutexes, condition variables, semaphores, reader-writer synchronisation objects, barriers, spinlocks
+
 ---
-
-<!-- =========================================================================================== -->
-<!-- DATA RACES -->
-<!-- =========================================================================================== -->
-
 # ThreadSanitizer & Helgrind: Data Races
 <!-- Using the *happens-before* relation -->
 
 .center[<img src='./trees/data_races[xy]-001111.dot.jpg' height="450"/>]
----
 
+---
 # ThreadSanitizer & Helgrind: Data Races
 Using the *happens-before* relation:
 
 .center[<img src='./trees/data_race[xy]-00001111111.dot.jpg' height="450"/>]
----
 
+---
 # ThreadSanitizer & Helgrind: Data Races
 Using the *happens-before* relation:
 
 .center[<img src='./trees/data_race[xy-hb]-00001111111.dot.jpg' height="450"/>]
----
 
+---
 # ThreadSanitizer & Helgrind: Data Races
 
 Limited information in *single* execution:
 
 .center[<img src='./trees/data_race_branch.dot.jpg' height="450"/>]
+
 ---
-
-???
-- Monitor all accesses to memory locations
-- If memory location is accessed by two different threads, checks whether the two accesses are
-  ordered by a happens-before relation
-- If not, a race is reported
-- Happens-before relation: There is a chain of synchronisation oeprations which cause those accesses to happen in a
-particular order
-- Partial ordering: some elements may be unordered with respect to each other
-Result of load/store operations depends on order in which they are performed. This order consists of
-- Thread order: operations performed by the same thread are ordered by the program (but may nonetheless depend on the results of previous load/store operations);
-- Synchronization order: Ordering constraints on operations performed by different threads
-- Together they form the Happens-Before order
-- A program is data-race free if all conflicting memory accesses are ordered by synchronization operations
-- HB methods do *not* report false pasitives
----
-
-<!-- =============================================================================================================== -->
-<!-- DEADLOCK -->
-<!-- =============================================================================================================== -->
-
 # ThreadSanitizer & Helgrind: Deadlock
 
 .center[
@@ -250,45 +230,171 @@ digraph deadlock {
 
 ???
 - Maintains a directed graph of lock aquisitions
-- An edge ```lock_object1 -> lock_object2``` is added iff a thread aquires a lock on ```lock_object2``` while holding a lock on ```lock_object1```
 - A cycle in the graph corresponds to a potential deadlock
 
 ---
+# Systematic Exploration
 
-# Nondeterminism
-- Concurrency errors notoriously difficult to catch: traditional testing not sufficient to find/reproduce errors
+<br/><br/>
+.center[<img src='./trees/data_races.dot.jpg' width="800"/>]
 
-- OS / VM Scheduler can be preempt threads at any time (beyond control of programmer)
-- Timing conditions
-
-- Abstraction of threads: these decisions are offloaded to the scheduler.
 ---
+# Systematic Exploration
 
+### Taking Control Over the Thread Interleavings
+
+- Scheduler
+- LLVM IR Instumentation Pass
+
+--
+count: false
+<br/>
+.center[<img src='./images/instrumented.jpg' height="200"/>]
+
+---
+# Systematic Exploration
+
+### Simple depth-first exploration
+
+State space explosion: becomes infeasible for larger programs
+
+---
 # State Space Reduction
-- Reduce the number of interleavings explored
-- Versus coverage guarantees: quantify the class / number of interleavings seen
----
+- Explore only a subset of interleavings
+- Provide coverage guarantees: quantify the class / number of interleavings seen
 
-# Randomized Testing
-- Citation:
-- Gives *some* (probabilistic) guarantees
 ---
-
-# Systematic Testing
-- Systematically see a subset of interleavings
----
-
 # Bounded Search
-- Define a bound function bf on interleaving and give a bound k
-- Only explore those interleaving for which bf(interleaving) less or equal k
-+ Incremental
-+ Fast
-+ Some guarantees
+```cpp
+bounded_search(program, bound_function, bound)
+{
+   for (interleaving : program.interleavings())
+   {
+      if (bound_function(interleaving) <= bound)
+      {
+         explore(interleaving);
+      }
+   }
+}
+```
+
+---
+<!-- # Bounded Search -->
+
+---
+# Bounded Search
+
+### Advantages:
+- Very fast for low bounds
+- Quantifiable coverage
+- Incremental
+
+### Disadvantages:
 - Incomplete
 - Redundancy
----
 
+???
+Rendundancy: for high enough bound explores the same as DFS
+
+---
 # Partial Order Reduction
+
+Different interleavings may yield *equivalent* executions:
+Ideally explore only a single one of those
+
+--
+count: false
+### Dependence Relation
+
+```c++
+bool dependent(memory_instr1, memory_instr2)
+{
+   return same_thread(memory_instr1, memory_instr2) || 
+          ( same_operand(memory_instr1, memory_instr2) &&
+            memory_instr1.is_write() || memory_inst2.is_write() );
+}
+```
+
+### Happens-Before Relation
+
+```c++
+bool happens_before(execution, index1, index2)
+{
+   return index1 < index2 && 
+          ( dependent(execution[index1], execution[index2]) ||
+            exists index' . index1 < index' < index2 && 
+                            happens_before(execution, index', index2) );
+}
+```
+
+??? 
+HB: transitive-reflexive closure of dependence and execution order
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-1.jpg' height="600"/>]
+
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-1.jpg' height="600"/>]
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-1-bt.jpg' height="600"/>]
+
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-2.jpg' height="600"/>]
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-2-bt.jpg' height="600"/>]
+
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-3.jpg' height="600"/>]
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-3-bt.jpg' height="600"/>]
+
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-2.jpg' height="600"/>]
+
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-2-hb-1.jpg' height="600"/>]
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-2-hb-1-bt.jpg' height="600"/>]
+
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-2-hb-2.jpg' height="600"/>]
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-2-hb-2-bt.jpg' height="600"/>]
+
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-2-hb-3.jpg' height="600"/>]
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-2-hb-3-bt.jpg' height="600"/>]
+
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-3.jpg' height="600"/>]
+
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-3-hb-1.jpg' height="600"/>]
+---
+<!-- # Partial Order Reduction -->
+.left[<img src='./trees/dpor/jpg/work-stealing-queue-3-hb-1-bt.jpg' height="600"/>]
+
+<!-- --- -->
+<!-- # Partial Order Reduction -->
+<!-- .left[<img src='./trees/dpor/jpg/work-stealing-queue-4.jpg' height="600"/>] -->
+
+???
 - Equivalence relation on interleavings
 - Ideally explore exactly one representative per equivalence class
 + Complete
@@ -298,14 +404,24 @@ digraph deadlock {
 - Dependence relation on instructions
 - Happens-before relation on instructions
 - HB = Partial Order = Equivalence
----
 
-# Tool
-- LLVM compiler instrumentation pass
-- Scheduler
-- Exploration algorithms
 ---
+# Partial Order Reduction
 
+### Advantages:
+- Complete coverage
+
+### Disadvantages:
+- Still infeasible for large state-spaces with many dependencies
+- Not incremental
+
+???
+Rendundancy: for high enough bound explores the same as DFS
+
+---
+# Thank you!
+
+---
 # Links
 
 POSIX threads:
@@ -319,14 +435,13 @@ http://valgrind.org/docs/manual/drd-manual.html
 
 ThreadSanitizer:
 https://github.com/google/sanitizers/wiki/ThreadSanitizerDeadlockDetector
----
 
     </textarea>
     <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js">
         </script>
     <script>
         var slideshow = remark.create({
-           countIncrementalSlides: false
+         //   countIncrementalSlides: false
         });
         </script>
     </body>
