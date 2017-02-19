@@ -23,7 +23,7 @@ def build_execution_tree(threads, output_dir, program_name):
     graph = ext.execution_tree()
     graph.add_node(0)
     build_execution_subtree(graph, threads, 0, [0, 0], 0)
-    dump_tree(graph, output_dir, "%s.dot" % program_name)
+    ext.dump(graph, output_dir, "%s.dot" % program_name)
     
 def build_execution_subtree(graph, threads, node_id, thread_indices, build_index):
     for thread_id in range(0, len(threads)):
@@ -56,17 +56,11 @@ def build_execution(threads, schedule, output_dir, program_name):
             
 #=======================================================================================================================
 # DUMP
-#=======================================================================================================================
-            
-def dump_tree(graph, output_dir, program_name):
-    os.system("test -d %s || mkdir -p %s" % (output_dir, output_dir))
-    dot_name = "%s/%s.dot" % (output_dir, program_name)
-    graph.write(dot_name)
-    os.system("dot %s -Tjpg -o %s.jpg" % (dot_name, dot_name))
+
     
 def dump_execution(graph, schedule, output_dir, program_name):
     schedule_str = "".join(map(lambda x : str(x[0]), schedule))
-    dump_tree(graph, output_dir, "%s-%s" % (program_name, schedule_str))
+    ext.dump(graph, output_dir, "%s-%s" % (program_name, schedule_str))
 
 #-----------------------------------------------------------------------------------------------------------------------
 # DATA_RACES (two dataraces)
@@ -134,6 +128,6 @@ def print_data_race_branch_cpp():
     highlight(graph, "_instr_s.1.0", "red")
     highlight(graph, "_instr_s.1.0.0", "blue")
     highlight(graph, "_instr_s.1.0.0.1.1", "blue")
-    dump_tree(graph, "trees", "data_race_branch")
+    ext.dump(graph, "trees", "data_race_branch")
 
 print_data_race_branch_cpp()
