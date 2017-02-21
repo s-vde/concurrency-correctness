@@ -12,12 +12,12 @@ def add_edge(graph, source_id, dest_id, thread_id, instruction):
     graph.add_edge(source_id, dummy_instr_id, dir='none', color=colors[thread_id])
     graph.add_edge(dummy_instr_id, dest_id, color=colors[thread_id])
     
-def add_happens_before_edge(graph, source_sched, dest_sched):
+def add_happens_before_edge(graph, source_sched, dest_sched, label="hb"):
     graph.add_edge(ext.node_of_schedule(source_sched, "_instr_s."),
                    ext.node_of_schedule(dest_sched, "_instr_s."),
                    weight='0', 
                    style='dotted', 
-                   label='  hb  ')
+                   label='  %s  ' % label)
 
 def remove_happens_before_edge(graph, source_sched, dest_sched):
     graph.remove_edge(ext.node_of_schedule(source_sched, "_instr_s."),
@@ -28,8 +28,8 @@ def highlight(graph, node_id, color):
     node = graph.get_node(node_id)
     node.attr['fontcolor'] = color
     
-def build_execution_tree(threads, output_dir, program_name):
-    graph = ext.execution_tree()
+def build_execution_tree(threads, output_dir, program_name, color='black', nodesep='3'):
+    graph = ext.execution_tree(color, nodesep)
     graph.add_node("s")
     build_execution_subtree(graph, threads, "s", [0, 0], 0)
     return graph
@@ -76,21 +76,21 @@ def dump_execution(graph, schedule, output_dir, program_name):
 #-----------------------------------------------------------------------------------------------------------------------
 
 def print_data_races_cpp():
-    thread1 = [ "1 read x", "1 read y" ]
-    thread2 = [ "2 write x", "2 read x", "2 read y", "2 write z" ]
+    thread1 = [ "0 read x", "0 read y" ]
+    thread2 = [ "1 write x", "1 read x", "1 read y", "1 write z" ]
     threads = [thread1, thread2]
     
-    graph = ext.execution_tree()
-    schedule = [(0,0),(0,1),(1,0),(1,1),(1,2),(1,3)]
-    add_execution(graph, threads, schedule)
-    highlight(graph, "_instr_s.0", "red")
-    highlight(graph, "_instr_s.0.0.1", "red")
-    highlight(graph, "_instr_s.0.0", "blue")
-    highlight(graph, "_instr_s.0.0.1.1.1", "blue")
-    dump_execution(graph, schedule, "trees", "data_races[xy]")
+    # graph = ext.execution_tree()
+    # schedule = [(0,0),(0,1),(1,0),(1,1),(1,2),(1,3)]
+    # add_execution(graph, threads, schedule)
+    # highlight(graph, "_instr_s.0", "red")
+    # highlight(graph, "_instr_s.0.0.1", "red")
+    # highlight(graph, "_instr_s.0.0", "blue")
+    # highlight(graph, "_instr_s.0.0.1.1.1", "blue")
+    # dump_execution(graph, schedule, "trees", "data_races[xy]")
     
     # TREE
-    tree = build_execution_tree(threads, "trees", "data_races")
+    tree = build_execution_tree(threads, "trees", "data_races", 'black', '1.5')
     ext.dump(tree, "trees", "data_races")
     
     ext.highlight_schedule(tree, [1,0,1,0,1,1], "red")
@@ -107,21 +107,29 @@ print_data_races_cpp()
 #----------------------------------------------------------------------------------------------------
 
 def print_data_race_cpp():
-    thread1 = [ "1 lock m", "1 read x", "1 unlock m", "1 read y" ]
+    thread1 = ["1 lock m", 
+               "1 read x", 
+               "1 unlock m"
+            #    "1 read y" 
+              ]
     thread2 = [ "2 lock m", "2 write x", "2 unlock m", "2 read x", "2 read y", "2 write z" ]
     threads = [thread1, thread2]
     
     graph = ext.execution_tree()
-    schedule = [(0,0),(0,1),(0,2),(0,3),(1,0),(1,1),(1,2),(1,3),(1,4),(1,5),(1,6)]
+    schedule = [(0,0),
+                (0,1),
+                (0,2),
+                # (0,3),
+                (1,0),(1,1),(1,2),(1,3),(1,4),(1,5),(1,6)]
     add_execution(graph, threads, schedule)
     highlight(graph, "_instr_s.0.0", "red")
-    highlight(graph, "_instr_s.0.0.0.0.1.1", "red")
-    highlight(graph, "_instr_s.0.0.0.0", "blue")
-    highlight(graph, "_instr_s.0.0.0.0.1.1.1.1.1", "blue")
+    highlight(graph, "_instr_s.0.0.0.1.1", "red")
+    # highlight(graph, "_instr_s.0.0.0", "blue")
+    # highlight(graph, "_instr_s.0.0.0.1.1.1.1.1", "blue")
     dump_execution(graph, schedule, "trees", "data_race[xy]")
     
-    add_happens_before_edge(graph, "s.0.0.0", "s.0.0.0.0.1")
-    add_happens_before_edge(graph, "s.0.0", "s.0.0.0.0.1.1")
+    add_happens_before_edge(graph, "s.0.0.0", "s.0.0.0.1")
+    add_happens_before_edge(graph, "s.0.0", "s.0.0.0.1.1")
     dump_execution(graph, schedule, "trees", "data_race[xy-hb]")
     
 print_data_race_cpp()

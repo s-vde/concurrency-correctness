@@ -1,6 +1,7 @@
 
 import os
 import execution_tree as ext
+import itertools
 import ntpath
 import search_tree as st
 
@@ -117,8 +118,6 @@ def print_work_stealing_queue_dpor(file_name):
 
 #---------------------------------------------------------------------------------------------------
 
-print_work_stealing_queue_dpor("%s/output/work-stealing-queue2/depth_first_search/dpor/Persistent/visible_schedules.txt" % state_space_explorer)
-
 
 
 #---------------------------------------------------------------------------------------------------
@@ -230,7 +229,19 @@ def print_work_stealing_queue_bounded_search(bounded_search_preemptions_path):
     # ext.add_schedule(tree, schedule)
     # ext.reset_schedule(tree, schedule)
     
+# def print_work_stealing_queue_dfs():
+    # output_dir = "trees/dfs"
     
+    # tree = ext.execution_tree()
+    # schedules = itertools.permutations([0,0,0,0,0,0,0,0,1,1,1,1,1,1])
+    # for schedule in schedules:
+        # print (schedule)
+        # ext.add_schedule(tree, schedule)
+    # ext.dump(tree, output_dir, "work-stealing-queue-all")
+
+
 #---------------------------------------------------------------------------------------------------
 
+# print_work_stealing_queue_dfs()
 print_work_stealing_queue_bounded_search("%s/output/work-stealing-queue2/depth_first_search/bound/Preemptions" % state_space_explorer)
+print_work_stealing_queue_dpor("%s/output/work-stealing-queue2/depth_first_search/dpor/Persistent/visible_schedules.txt" % state_space_explorer)

@@ -34,22 +34,53 @@
 
 class: center, middle
 
-# Verification and Concurrency
+# Verifying Multi-Threaded Programs
 ### Susanne van den Elsen
 Native Instruments
 
 February 21, 2017
 
----
-# Introduction
-
----
-# Why use multiple threads?
-- Abstraction for modeling concurrent activities
-- Use multiple CPU cores for speeding up computation
-
+<!-- =========================================================================================== -->
+<!-- ========================================= Threads ========================================= -->
 <!-- =========================================================================================== -->
 
+---
+# Threads
+.left[<img src='images/threads/threads.001.jpeg' height="600"/>]
+---
+count: false
+# Threads
+.left[<img src='images/threads/threads.002.jpeg' height="600"/>]
+---
+count: false
+# Threads
+.left[<img src='images/threads/threads.003.jpeg' height="600"/>]
+---
+count: false
+# Threads
+.left[<img src='images/threads/threads.004.jpeg' height="600"/>]
+---
+count: false
+# Threads
+.left[<img src='images/threads/threads.005.jpeg' height="600"/>]
+---
+count: false
+# Threads
+.left[<img src='images/threads/threads.006.jpeg' height="600"/>]
+---
+count: false
+# Threads
+.left[<img src='images/threads/threads.007.jpeg' height="600"/>]
+---
+count: false
+# Threads
+.left[<img src='images/threads/threads.008.jpeg' height="600"/>]
+
+<!-- =========================================================================================== -->
+<!-- ============================= What's Hard About Concurrency =============================== -->
+<!-- =========================================================================================== -->
+
+<!-- =============================== Shared Resources: Datarace ================================ -->
 ---
 # What's Hard About Concurrency?
 ### Shared Resources
@@ -71,9 +102,13 @@ if (x == 1)                x = 1;
 --
 count: false
 #### Datarace: 
-two (or more) threads access the same memory location *concurrently* and at least one 
+Two (or more) threads access the same memory location *concurrently* and at least one 
 of them is a *write*
 
+<!-- ??? -->
+<!-- It is officially *undefined behaviour*! -->
+
+<!-- =============================== Shared Resources: Deadlock ================================ -->
 ---
 # What's Hard About Concurrency?
 ### Shared Resources
@@ -92,171 +127,296 @@ unlock(fork2);             unlock(fork1);
 unlock(fork1);             unlock(fork2);
 ```
 
+---
+# What's Hard About Concurrency?
+### Shared Resources
+
+```c++
+array<int,2> nr_meals_eaten = {0, 0};
+mutex fork1, fork2;
+
+philosopher 0              philosopher 1
+-------------              -------------
+
+lock(fork1);               
+                           lock(fork2);
+lock(fork2);               
+                           lock(fork1);
+++nr_meals_eaten[0];       ++nr_meals_eaten[1];
+unlock(fork2);             unlock(fork1);
+unlock(fork1);             unlock(fork2);
+```
+
 --
 count: false
 #### Deadlock: 
-One more more threads wait for eachother indefinitely
+One more more threads wait for each other indefinitely
 
 ???
 - False sharing: Threads running on different processor cores access different variables located in the same cache line frequently. This will slow down the involved threads due to frequent exchange of cache lines
 - Lock contention: One thread blocks the progress of other threads by holding a lock too long
 
+<!-- ================================== State Space Explosion ================================== -->
 ---
 # What's Hard About Concurrency?
 ### State Space Explosion
-
---
-
-Number of interleavings is *exponential* in the number of threads and instructions!
-<br/><br/>
-.center[<img src='./trees/data_races.dot.jpg' width="800"/>]
-
-???
-Worst-case example: n threads with 1 local variable each: n! (exponential) interleavings, and only 
-a single outcome
-
----
-# What's Hard About Concurrency?
-### Nondeterminism
-
-The interleaving of threads is out of the programmer's control
-<br/><br/><br/>
-.center[<img src='./trees/data_races.dot.jpg' width="800"/>]
-
----
-
-# What's Hard About Concurrency?
-### Nondeterminism
-
-The interleaving of threads is out of the programmer's control
-<br/><br/><br/>
-.center[<img src='./trees/data_races_highlight1.dot.jpg' width="800"/>]
-
----
-
-# What's Hard About Concurrency?
-### Nondeterminism
-
-The interleaving of threads is out of the programmer's control
-<br/><br/><br/>
-.center[<img src='./trees/data_races_highlight2.dot.jpg' width="800"/>]
-
-???
-1. It is in the hands of the OS/VM scheduler
-- Bugs may only manifest in rare thread interleavings 
-   -> But the consequences may be severe in safety-critical systems
-- Heisenbugs: tend to disappear when you try to debug them
-   -> Hard to reproduce
-   
----
-# Concurrency Error Detectors
-
-### ThreadSanitzer & Helgrind
-- Instrument every potentially *visible* instruction
-- Maintain a state machine for analysis
-
-
-???
-### ThreadSanitizer
-- Compiler instrumentation (LLVM IR)
-
-### Helgrind
-- Runtime Instrumentation (VEX IR, RISC-like)
-- Code run on synthetic CPU provided by Valgrind Core 
-- Threads are fully serialized (only single CPU is used)
-
-
-| Thread Sanitizer                                          | Helgrind (Valgrind tool)                                  |
-| :-------------------------------------------------------- | :-------------------------------------------------------- 
-| Only sees errors in actual execution                      |                                                           |
-|                                                           | False positives                                           |
-|                                                           | Possibility to suppress errors                            |
-| Only available on 64bit (32bit address space too limited) |                                                           |
-
-
-| Compiler Instrumentation                                  | Runtime Instrumentation                                   |
-| :-------------------------------------------------------- | :-------------------------------------------------------- |
-| - Need to recompile the source code                       | + Works directly on the executable                        |
-
-
-???
-Most devs know Valgrind as a memcheck tool, but that is actually only one of the tools it comes with.
-A less well-known tool is Helgrind.
-The nul-tool inserts no instrumentation and causes a 4x slowdown
-
-POSIX:
-- Shared address space among threads. All data (shared and non-shared is identified by its address)
-- Threads represent a concurrent activity
-- Synchronisation objects: mutexes, condition variables, semaphores, reader-writer synchronisation objects, barriers, spinlocks
-
----
-# ThreadSanitizer & Helgrind: Data Races
-<!-- Using the *happens-before* relation -->
-
-.center[<img src='./trees/data_races[xy]-001111.dot.jpg' height="450"/>]
-
----
-# ThreadSanitizer & Helgrind: Data Races
-Using the *happens-before* relation:
-
-.center[<img src='./trees/data_race[xy]-00001111111.dot.jpg' height="450"/>]
-
----
-# ThreadSanitizer & Helgrind: Data Races
-Using the *happens-before* relation:
-
-.center[<img src='./trees/data_race[xy-hb]-00001111111.dot.jpg' height="450"/>]
-
----
-# ThreadSanitizer & Helgrind: Data Races
-
-Limited information in *single* execution:
-
-.center[<img src='./trees/data_race_branch.dot.jpg' height="450"/>]
-
----
-# ThreadSanitizer & Helgrind: Deadlock
-
-.center[
-<img src='http://g.gravizo.com/g?
-digraph deadlock {
-    graph [dpi=300]
-    node [shape=none];
-    edge [minlen=0.75, arrowsize=0.5]
-    "lock forks[0]" -> "lock forks[1]" [label="thread 1"];
-    "lock forks[1]" -> "lock forks[0]" [label="thread 2"];
-}
-' width="450"/>]
-
-???
-- Maintains a directed graph of lock aquisitions
-- A cycle in the graph corresponds to a potential deadlock
-
----
-# Systematic Exploration
-
-<br/><br/>
-.center[<img src='./trees/data_races.dot.jpg' width="800"/>]
-
----
-# Systematic Exploration
-
-### Taking Control Over the Thread Interleavings
-
-- Scheduler
-- LLVM IR Instumentation Pass
-
 --
 count: false
-<br/>
-.center[<img src='./images/instrumented.jpg' height="200"/>]
+Number of interleavings is *exponential* in the number of threads and instructions!
+<br/><br/>
+.center[<img src='./trees/jpg/data_races.jpg' width="800"/>]
+
+<!-- ??? -->
+<!-- Worst-case example: n threads with 1 local variable each: n! (exponential) interleavings, and only  -->
+<!-- a single outcome -->
+
+<!-- ===================================== Nondeterminism ====================================== -->
+---
+# What's Hard About Concurrency?
+### Nondeterminism
+
+The interleaving of threads is out of the programmer's control
+<br/><br/><br/>
+.center[<img src='./trees/jpg/data_races.jpg' width="800"/>]
+
+---
+count: false
+# What's Hard About Concurrency?
+### Nondeterminism
+
+The interleaving of threads is out of the programmer's control
+<br/><br/><br/>
+.center[<img src='./trees/jpg/data_races_highlight1.jpg' width="800"/>]
+
+???
+It may depend on 
+- load on the maschine 
+- OS scheduler strategy
+
+---
+count: false
+# What's Hard About Concurrency?
+### Nondeterminism
+
+The interleaving of threads is out of the programmer's control
+<br/><br/><br/>
+.center[<img src='./trees/jpg/data_races_highlight2.jpg' width="800"/>]
+
+<!-- ??? -->
+<!-- 1. It is in the hands of the OS/VM scheduler -->
+<!-- - Bugs may only manifest in rare thread interleavings  -->
+   <!-- -> But the consequences may be severe in safety-critical systems -->
+<!-- - Heisenbugs: tend to disappear when you try to debug them -->
+   <!-- -> Hard to reproduce -->
+
+<!-- =========================================================================================== -->
+<!-- ============================== Concurrency Error Detectors ================================ -->
+<!-- =========================================================================================== -->
+---
+class: center, middle
+# Concurrency Error Detectors
+
+---
+# Concurrency Error Detectors
+### ThreadSanitzer
+```shell
+clang++ program_under_test.cpp -fsanitize=thread -o program_under_test
+./program_under_test
+```
+--
+count: false
+#### Compiler Instrumentation (LLVM IR)
+
+Instrument every potentially *visible* instruction (e.g. `load`, `store`)
+--
+count: false
+```
+define void @function() {
+__tsan_func_entry(caller)
+%2 = alloca i32
+__tsan_store(%2)
+store i32 %0, i32* %2
+__tsan_load(%2)
+%4 = load i32, i32* %2
+ret i32 %4
+__tsan_func_exit()
+}
+```
+
+<!-- ??? -->
+<!-- - This means you need to have the source code of the program under test and recompile it with  -->
+<!-- clang and the `-fsanitize=thread` flag -->
+<!-- - Actually found thousands of bugs in e.g. Chromium, Firefox, the Go standard library, WebRTC,  -->
+<!-- OpenSSL -->
+
+---
+count: false
+# Concurrency Error Detectors
+### ThreadSanitzer
+#### Runtime library
+The `__tsan_` functions are callbacks to the Runtime Library
+
+Maintains a state maschine using shadow state
+
+.center[<img src='./images/shadow_state.001.jpeg' height="400"/>]
+<!-- Maintains a state machine for analysis -->
+<!-- ???  -->
+<!-- - Happens-before mode does in principle not yield false positives -->
+<!-- - False positives can arise due to overwriting shadow words in shadow state due to restricted -->
+<!-- memorization -->
+
+---
+# Concurrency Error Detectors
+### Helgrind
+#### Binary Instrumentation
+```shell
+valgrind --tool=helgrind -v program
+```
+
+- Program is run on synthetic CPU provided by Valgrind Core 
+- Threads are fully serialzed (only single CPU used)
+
+<!-- ??? -->
+<!-- Most devs know Valgrind as a memcheck tool, but that is actually only one of the tools it comes with. -->
+<!-- A less well-known tool is Helgrind. -->
+<!-- The nul-tool inserts no instrumentation and causes a 4x slowdown -->
+
+<!-- POSIX: -->
+<!-- - Shared address space among threads. All data (shared and non-shared is identified by its address) -->
+<!-- - Threads represent a concurrent activity -->
+<!-- - Synchronisation objects: mutexes, condition variables, semaphores, reader-writer synchronisation objects, barriers, spinlocks -->
+
+---
+# ThreadSanitizer & Helgrind: Data Races
+<br/><br/>
+<tr>
+    <td><img src="./trees/sanitizer/jpg/data-race-1-hb.jpg" style="height: 300px;"/></td>
+    <td><img src="./images/shadow_state_x.001.jpeg" style="height: 300px;"/></td>
+</tr>
+<!-- .center[<img src='./trees/sanitizer/jpg/data-race-1-hb.jpg' height="275"/>] -->
+
+---
+# ThreadSanitizer & Helgrind: Data Races
+Using the *happens-before* relation:
+<br/><br/>
+<tr>
+    <td><img src='./trees/sanitizer/jpg/data-race-2-hb-1.jpg' height="450"/></td>
+</tr>
+.center[]
+
+---
+count: false
+# ThreadSanitizer & Helgrind: Data Races
+Using the *happens-before* relation:
+<br/><br/>
+<tr>
+    <td><img src='./trees/sanitizer/jpg/data-race-2-hb-2.jpg' height="450"/></td>
+    <td><img src="./images/shadow_state_x.002.jpeg" style="height: 400px;"/></td>
+</tr>
+
+???
+When a mutex is unlocked by thread T1 and later (or immediately) locked by thread T2, 
+then the memory accesses in T1 prior to the unlock must happen-before those in T2 after 
+it acquires the lock.
+
+---
+# ThreadSanitizer & Helgrind: Data Races
+Limited information in *single* execution:
+<br/><br/><br/>
+.center[<img src='./trees/sanitizer/jpg/data-race-3-hb.jpg' height="375"/>]
+
+---
+class: middle, center
+# Systematic Exploration
 
 ---
 # Systematic Exploration
+<br/><br/>
+.center[<img src='./trees/jpg/data_races.jpg' width="800"/>]
 
+---
+# Taking Control Over the Thread Interleavings
+#### LLVM IR Instumentation Pass
+
+Replace 
+```c++
+pthread_create(pid, attr, start_routine, args)
+pthread_join(pid)
+``` 
+by 
+```c++ 
+wrapper_spawn_thread(pid, attr, start_routine, args)
+wrapper_pthread_join()
+```
+
+#### Scheduler
+```c++
+void wrapper_spawn_thread(pid, attr, start_routine, args)
+{
+   semaphores.insert({ pid, semaphore() })
+   pthread_create(pid, attr, start_routine, args)
+}
+```
+
+---
+count: false
+# Taking Control Over the Thread Interleavings
+#### LLVM IR Instumentation Pass
+
+Insert call to potentially *visible* instructions
+```
+wrap_post_task(instruction(store, %2, is_atomic))
+store i32 %0, i32* %2
+```
+
+#### Scheduler
+```c++
+void wrapper_post_task(instruction)
+{
+   task_pool.insert({ this_thread::id(), instruction });
+   semaphores[this_thread::id()].wait();
+   // wait for turn
+   
+   task_pool.remove(this_thread::id());
+   // perform instructions
+}
+```
+
+---
+count: false
+# Taking Control Over the Thread Interleavings
+#### Scheduler
+
+```c++
+void scheduler_thread(schedule)
+{
+   for (thread_id : schedule)
+   {
+      wait_until(task_pool.contains_key(thread_id));
+      current_thread_id = thread_id;
+      semaphore.post();
+      // notify the waiting thread
+   }
+   
+   // run the rest of the program without scheduler control
+   for (semaphore : semaphores)
+   {
+      semaphore.post();
+   }
+}
+```
+
+<!-- -- -->
+<!-- count: false -->
+<!-- <br/> -->
+<!-- .center[<img src='./images/instrumented.jpg' height="200"/>] -->
+
+---
+# Systematic Exploration
 ### Simple depth-first exploration
-
 State space explosion: becomes infeasible for larger programs
+<br/><br/>
+.center[<img src='./trees/jpg/data_races.jpg' width="800"/>]
 
 ---
 # State Space Reduction
@@ -280,6 +440,11 @@ bounded_search(program, bound_function, bound)
    }
 }
 ```
+--
+count: zero
+### Bound Functions
+- Number of context-switches
+- Number of preemptions
 
 <!-- ================================== Preemption Bound = 0 =================================== -->
 ---
@@ -335,7 +500,7 @@ count: false
 
 ### Disadvantages:
 - Incomplete
-- Redundancy
+- For high bounds not better than depth first search
 
 ???
 Rendundancy: for high enough bound explores the same as DFS
@@ -376,86 +541,85 @@ bool happens_before(execution, index1, index2)
 ```
 
 ---
-count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-1.jpg' height="550"/>]
 
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-1.jpg' height="550"/>]
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-1-bt.jpg' height="550"/>]
 
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-2.jpg' height="550"/>]
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-2-bt.jpg' height="550"/>]
 
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-3.jpg' height="550"/>]
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-3-bt.jpg' height="550"/>]
 
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-2.jpg' height="550"/>]
 
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-2-hb-1.jpg' height="550"/>]
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-2-hb-1-bt.jpg' height="550"/>]
 
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-2-hb-2.jpg' height="550"/>]
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-2-hb-2-bt.jpg' height="550"/>]
 
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-2-hb-3.jpg' height="550"/>]
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-2-hb-3-bt.jpg' height="550"/>]
 
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-3.jpg' height="550"/>]
 
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-3-hb-1.jpg' height="550"/>]
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 .left[<img src='./trees/dpor/jpg/work-stealing-queue-3-hb-1-bt.jpg' height="550"/>]
 
 ---
 count: false
-##### Partial Order Reduction: work-stealing-queue
+##### Partial Order Reduction
 <br/><br/><br/>
 .left[<img src='./trees/dpor/jpg/visible_schedules.txt-all.jpg' width="750"/>]
 
@@ -484,22 +648,27 @@ count: false
 Rendundancy: for high enough bound explores the same as DFS
 
 ---
+class: center, middle
 # Thank you!
 
 ---
 # Links
 
-POSIX threads:
-http://pubs.opengroup.org/onlinepubs/000095399/idx/threads.html
+<!-- POSIX threads: -->
+<!-- http://pubs.opengroup.org/onlinepubs/000095399/idx/threads.html -->
 
-Helgrind:
+#### Helgrind
 http://valgrind.org/docs/manual/hg-manual.html
 
-DRD:
-http://valgrind.org/docs/manual/drd-manual.html
+#### ThreadSanitizer:
+https://github.com/google/sanitizers/wiki
 
-ThreadSanitizer:
-https://github.com/google/sanitizers/wiki/ThreadSanitizerDeadlockDetector
+#### My Project:
+https://github.com/s-vde/record-replay
+
+https://github.com/s-vde/state-space-explorer
+
+
 
     </textarea>
     <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js">
@@ -511,3 +680,19 @@ https://github.com/google/sanitizers/wiki/ThreadSanitizerDeadlockDetector
         </script>
     </body>
 </html>
+
+<!-- # ThreadSanitizer & Helgrind: Deadlock -->
+<!-- .center[ -->
+<!-- <img src='http://g.gravizo.com/g? -->
+<!-- digraph deadlock { -->
+    <!-- graph [dpi=300] -->
+    <!-- node [shape=none]; -->
+    <!-- edge [minlen=0.75, arrowsize=0.5] -->
+    <!-- "lock forks[0]" -> "lock forks[1]" [label="thread 1"]; -->
+    <!-- "lock forks[1]" -> "lock forks[0]" [label="thread 2"]; -->
+<!-- } -->
+<!-- ' width="450"/>] -->
+
+<!-- ??? -->
+<!-- - Maintains a directed graph of lock aquisitions -->
+<!-- - A cycle in the graph corresponds to a potential deadlock -->
