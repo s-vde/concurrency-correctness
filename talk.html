@@ -75,6 +75,10 @@ count: false
 count: false
 # Threads
 .left[<img src='images/threads/threads.008.jpeg' height="600"/>]
+---
+count: false
+# Threads
+.left[<img src='images/threads/threads.009.jpeg' height="600"/>]
 
 <!-- =========================================================================================== -->
 <!-- ============================= What's Hard About Concurrency =============================== -->
@@ -85,8 +89,6 @@ count: false
 # What's Hard About Concurrency?
 ### Shared Resources
 
---
-count: false
 ```c++
 int x, y, z = 0;
 
@@ -111,7 +113,7 @@ of them is a *write*
 <!-- =============================== Shared Resources: Deadlock ================================ -->
 ---
 # What's Hard About Concurrency?
-### Shared Resources
+### Synchronisation
 
 ```c++
 array<int,2> nr_meals_eaten = {0, 0};
@@ -129,7 +131,7 @@ unlock(fork1);             unlock(fork2);
 
 ---
 # What's Hard About Concurrency?
-### Shared Resources
+### Synchronisation
 
 ```c++
 array<int,2> nr_meals_eaten = {0, 0};
@@ -150,7 +152,7 @@ unlock(fork1);             unlock(fork2);
 --
 count: false
 #### Deadlock: 
-One more more threads wait for each other indefinitely
+Two or more threads wait for each other indefinitely
 
 ???
 - False sharing: Threads running on different processor cores access different variables located in the same cache line frequently. This will slow down the involved threads due to frequent exchange of cache lines
@@ -162,8 +164,24 @@ One more more threads wait for each other indefinitely
 ### State Space Explosion
 --
 count: false
-Number of interleavings is *exponential* in the number of threads and instructions!
-<br/><br/>
+```c++
+int x, y, z = 0;
+
+thread 0                   thread 1
+--------                   --------
+
+if (x == 1)                x = 1; 
+{                          z = x + y;
+   y = 1;                  std::cout << z << "\n";                   
+}                                          
+```
+
+---
+count: false
+# What's Hard About Concurrency?
+### State Space Explosion
+Number of possible thread interleavings is *exponential* in the number of threads and instructions!
+<br/><br/><br/>
 .center[<img src='./trees/jpg/data_races.jpg' width="800"/>]
 
 <!-- ??? -->
@@ -176,7 +194,7 @@ Number of interleavings is *exponential* in the number of threads and instructio
 ### Nondeterminism
 
 The interleaving of threads is out of the programmer's control
-<br/><br/><br/>
+<br/><br/><br/><br/>
 .center[<img src='./trees/jpg/data_races.jpg' width="800"/>]
 
 ---
@@ -185,7 +203,7 @@ count: false
 ### Nondeterminism
 
 The interleaving of threads is out of the programmer's control
-<br/><br/><br/>
+<br/><br/><br/><br/>
 .center[<img src='./trees/jpg/data_races_highlight1.jpg' width="800"/>]
 
 ???
@@ -199,7 +217,7 @@ count: false
 ### Nondeterminism
 
 The interleaving of threads is out of the programmer's control
-<br/><br/><br/>
+<br/><br/><br/><br/>
 .center[<img src='./trees/jpg/data_races_highlight2.jpg' width="800"/>]
 
 <!-- ??? -->
@@ -254,16 +272,21 @@ count: false
 # Concurrency Error Detectors
 ### ThreadSanitzer
 #### Runtime library
-The `__tsan_` functions are callbacks to the Runtime Library
+The `__tsan_` functions are callbacks to a Runtime Library (part of clang-rt)
 
-Maintains a state maschine using shadow state
+Maintains a state maschine using shadow state for analysis
 
-.center[<img src='./images/shadow_state.001.jpeg' height="400"/>]
+<!-- .center[<img src='./images/shadow_state_x.001.jpeg' height="400"/>] -->
 <!-- Maintains a state machine for analysis -->
 <!-- ???  -->
 <!-- - Happens-before mode does in principle not yield false positives -->
 <!-- - False positives can arise due to overwriting shadow words in shadow state due to restricted -->
 <!-- memorization -->
+
+<!-- POSIX: -->
+<!-- - Shared address space among threads. All data (shared and non-shared is identified by its address) -->
+<!-- - Threads represent a concurrent activity -->
+<!-- - Synchronisation objects: mutexes, condition variables, semaphores, reader-writer synchronisation objects, barriers, spinlocks -->
 
 ---
 # Concurrency Error Detectors
@@ -280,11 +303,6 @@ valgrind --tool=helgrind -v program
 <!-- Most devs know Valgrind as a memcheck tool, but that is actually only one of the tools it comes with. -->
 <!-- A less well-known tool is Helgrind. -->
 <!-- The nul-tool inserts no instrumentation and causes a 4x slowdown -->
-
-<!-- POSIX: -->
-<!-- - Shared address space among threads. All data (shared and non-shared is identified by its address) -->
-<!-- - Threads represent a concurrent activity -->
-<!-- - Synchronisation objects: mutexes, condition variables, semaphores, reader-writer synchronisation objects, barriers, spinlocks -->
 
 ---
 # ThreadSanitizer & Helgrind: Data Races
@@ -311,6 +329,15 @@ Using the *happens-before* relation:
 <br/><br/>
 <tr>
     <td><img src='./trees/sanitizer/jpg/data-race-2-hb-2.jpg' height="450"/></td>
+</tr>
+
+---
+count: false
+# ThreadSanitizer & Helgrind: Data Races
+Using the *happens-before* relation:
+<br/><br/>
+<tr>
+    <td><img src='./trees/sanitizer/jpg/data-race-2-hb-3.jpg' height="450"/></td>
     <td><img src="./images/shadow_state_x.002.jpeg" style="height: 400px;"/></td>
 </tr>
 
@@ -324,6 +351,24 @@ it acquires the lock.
 Limited information in *single* execution:
 <br/><br/><br/>
 .center[<img src='./trees/sanitizer/jpg/data-race-3-hb.jpg' height="375"/>]
+
+---
+# ThreadSanitizer: Deadlock
+<img src='./images/deadlock.jpeg' height="500"/>
+    
+    <!-- <td><img src='http://g.gravizo.com/g? -->
+    <!-- digraph deadlock { -->
+        <!-- graph [dpi=300] -->
+        <!-- node [shape=none]; -->
+        <!-- edge [minlen=0.75, arrowsize=0.5] -->
+        <!-- "lock forks[0]" -> "lock forks[1]" [label="thread 0"]; -->
+        <!-- "lock forks[1]" -> "lock forks[0]" [label="thread 1"]; -->
+    <!-- } -->
+    <!-- 'width="450"/></td> -->
+
+<!-- ??? -->
+<!-- - Maintains a directed graph of lock aquisitions -->
+<!-- - A cycle in the graph corresponds to a potential deadlock -->
 
 ---
 class: middle, center
@@ -394,14 +439,8 @@ void scheduler_thread(schedule)
    {
       wait_until(task_pool.contains_key(thread_id));
       current_thread_id = thread_id;
-      semaphore.post();
+      semaphore[thread_id].post();
       // notify the waiting thread
-   }
-   
-   // run the rest of the program without scheduler control
-   for (semaphore : semaphores)
-   {
-      semaphore.post();
    }
 }
 ```
@@ -526,32 +565,121 @@ bool dependent(memory_instr1, memory_instr2)
             memory_instr1.is_write() || memory_inst2.is_write() );
 }
 ```
---
-count: false
-#### Happens-Before Relation
-
 ```c++
-bool happens_before(execution, index1, index2)
+bool dependent(lock_instr1, lock_instr2)
 {
-   return index1 < index2 && 
-          ( dependent(execution[index1], execution[index2]) ||
-            exists index' . index1 < index' < index2 && 
-                            happens_before(execution, index', index2) );
+   return same_thread(lock_instr1, lock_instr2) || 
+          ( same_operand(lock_instr1, lock_instr2) &&
+            lock_instr1.is_lock() && lock_inst2.is_lock() );
 }
 ```
 
 ---
-##### Partial Order Reduction
-.left[<img src='./trees/dpor/jpg/work-stealing-queue-1.jpg' height="550"/>]
+# Partial Order Reduction 
+
+<br/>
+<tr>
+    <td><img src='./trees/sanitizer/jpg/data-race-dpor-hb-1.jpg' width="350"/></td>
+    <td><img src="./trees/sanitizer/jpg/data-race-dpor-hb-2.jpg" width="350"/></td>
+</tr>
+
+<!-- -- -->
+<!-- count: false -->
+<!-- #### Happens-Before Relation -->
+<!--  -->
+<!-- ```c++ -->
+<!-- bool happens_before(execution, index1, index2) -->
+<!-- { -->
+   <!-- return index1 < index2 &&  -->
+          <!-- ( dependent(execution[index1], execution[index2]) || -->
+            <!-- exists index' . index1 < index' < index2 &&  -->
+                            <!-- happens_before(execution, index', index2) ); -->
+<!-- } -->
+<!-- ``` -->
+
+---
+# Partial Order Reduction
+<!-- .left[<img src='./trees/dpor/jpg/work-stealing-queue-1.jpg' height="550"/>] -->
+<br/><br/>
+.left[<img src='./trees/sanitizer/jpg/data-race-dpor-hb-ex-1.jpg' width="550"/>]
 
 ---
 count: false
-##### Partial Order Reduction
-.left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-1.jpg' height="550"/>]
+# Partial Order Reduction
+<!-- .left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-1.jpg' height="550"/>] -->
+<br/><br/>
+.left[<img src='./trees/sanitizer/jpg/data-race-dpor-hb-ex-2.jpg' width="750"/>]
 ---
 count: false
-##### Partial Order Reduction
-.left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-1-bt.jpg' height="550"/>]
+# Partial Order Reduction
+<!-- .left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-1-bt.jpg' height="550"/>] -->
+<br/><br/>
+.left[<img src='./trees/sanitizer/jpg/data-race-dpor-hb-ex-3.jpg' width="750"/>]
+
+---
+count: false
+# Partial Order Reduction
+<!-- .left[<img src='./trees/dpor/jpg/work-stealing-queue-1-hb-2.jpg' height="550"/>] -->
+<br/><br/>
+.left[<img src='./trees/sanitizer/jpg/data-race-dpor-hb-ex-4.jpg' width="750"/>]
+
+???
+- Equivalence relation on interleavings
+- Ideally explore exactly one representative per equivalence class
++ Complete
+- Non-incremental
+- For nontrivial programs still too little reduction
+
+- Dependence relation on instructions
+- Happens-before relation on instructions
+- HB = Partial Order = Equivalence
+
+---
+# Partial Order Reduction
+
+### Advantages:
+- Complete coverage
+
+### Disadvantages:
+- Still infeasible for large state-spaces with many dependencies
+- Not incremental
+
+???
+Rendundancy: for high enough bound explores the same as DFS
+
+---
+class: center, middle
+# Thank you!
+
+---
+# Links
+
+<!-- POSIX threads: -->
+<!-- http://pubs.opengroup.org/onlinepubs/000095399/idx/threads.html -->
+
+#### Helgrind
+http://valgrind.org/docs/manual/hg-manual.html
+
+#### ThreadSanitizer:
+https://github.com/google/sanitizers/wiki
+
+#### My Project:
+https://github.com/s-vde/record-replay
+
+https://github.com/s-vde/state-space-explorer
+
+
+
+    </textarea>
+    <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js">
+        </script>
+    <script>
+        var slideshow = remark.create({
+         //   countIncrementalSlides: false
+        });
+        </script>
+    </body>
+</html>
 
 ---
 count: false
@@ -623,76 +751,3 @@ count: false
 <br/><br/><br/>
 .left[<img src='./trees/dpor/jpg/visible_schedules.txt-all.jpg' width="750"/>]
 
-???
-- Equivalence relation on interleavings
-- Ideally explore exactly one representative per equivalence class
-+ Complete
-- Non-incremental
-- For nontrivial programs still too little reduction
-
-- Dependence relation on instructions
-- Happens-before relation on instructions
-- HB = Partial Order = Equivalence
-
----
-# Partial Order Reduction
-
-### Advantages:
-- Complete coverage
-
-### Disadvantages:
-- Still infeasible for large state-spaces with many dependencies
-- Not incremental
-
-???
-Rendundancy: for high enough bound explores the same as DFS
-
----
-class: center, middle
-# Thank you!
-
----
-# Links
-
-<!-- POSIX threads: -->
-<!-- http://pubs.opengroup.org/onlinepubs/000095399/idx/threads.html -->
-
-#### Helgrind
-http://valgrind.org/docs/manual/hg-manual.html
-
-#### ThreadSanitizer:
-https://github.com/google/sanitizers/wiki
-
-#### My Project:
-https://github.com/s-vde/record-replay
-
-https://github.com/s-vde/state-space-explorer
-
-
-
-    </textarea>
-    <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js">
-        </script>
-    <script>
-        var slideshow = remark.create({
-         //   countIncrementalSlides: false
-        });
-        </script>
-    </body>
-</html>
-
-<!-- # ThreadSanitizer & Helgrind: Deadlock -->
-<!-- .center[ -->
-<!-- <img src='http://g.gravizo.com/g? -->
-<!-- digraph deadlock { -->
-    <!-- graph [dpi=300] -->
-    <!-- node [shape=none]; -->
-    <!-- edge [minlen=0.75, arrowsize=0.5] -->
-    <!-- "lock forks[0]" -> "lock forks[1]" [label="thread 1"]; -->
-    <!-- "lock forks[1]" -> "lock forks[0]" [label="thread 2"]; -->
-<!-- } -->
-<!-- ' width="450"/>] -->
-
-<!-- ??? -->
-<!-- - Maintains a directed graph of lock aquisitions -->
-<!-- - A cycle in the graph corresponds to a potential deadlock -->

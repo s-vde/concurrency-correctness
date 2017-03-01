@@ -3,7 +3,7 @@
 
 //------------------------------------------------------------------
 
-void thread1(std::mutex& m, int& x, int& y)
+void thread0(std::mutex& m, int& x, int& y)
 {
    // m.lock();
    int x_local = x;
@@ -17,7 +17,7 @@ void thread1(std::mutex& m, int& x, int& y)
 
 //------------------------------------------------------------------
 
-void thread2(std::mutex& m, int& x, int& y, int& z)
+void thread1(std::mutex& m, int& x, int& y, int& z)
 {
    // m.lock();
    x = 1;                     // datarace: line 9
@@ -33,11 +33,11 @@ int main()
    int x, y, z;
    std::mutex m;
     
-   std::thread t1(thread1, std::ref(m), std::ref(x), std::ref(y));
-   std::thread t2(thread2, std::ref(m), std::ref(x), std::ref(y), std::ref(z));
+   std::thread t0(thread0, std::ref(m), std::ref(x), std::ref(y));
+   std::thread t1(thread1, std::ref(m), std::ref(x), std::ref(y), std::ref(z));
              
+   t0.join();
    t1.join();
-   t2.join();
     
    return 0;
 }

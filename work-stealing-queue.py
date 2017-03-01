@@ -12,22 +12,22 @@ state_space_explorer = "/Volumes/Repositories/projects/programming/state-space-e
 #---------------------------------------------------------------------------------------------------
 
 master_thread = ["0 thread create",
-                 "0 atomic load tail (0)",
-                 "0 atomic load head (0)", 
+                 "0 atomic load tail",
+                 "0 atomic load head", 
                  "0 load mask",
                  "0 store jobs[0]",      
-                 "0 atomic store tail (1)",
-                 "0 atomic load tail (1)",
-                 "0 atomic load head (0)",
+                 "0 atomic store tail",
+                 "0 atomic load tail",
+                 "0 atomic load head",
                  "0 load mask",
                  "0 store jobs[1]",      
-                 "0 atomic store tail (2)"]
+                 "0 atomic store tail"]
 
 #---------------------------------------------------------------------------------------------------
                  
 worker_thread = ["1 thread create",
-                 "1 atomic load head (0)",
-                 "1 atomic store head (1)",
+                 "1 atomic load head",
+                 "1 atomic store head",
                  "1 atomic load tail",
                  "1 load mask",
                  "1 load jobs[0]"]
